@@ -56,7 +56,7 @@ public class Order extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     @Builder.Default
-    private OrderStatus status = OrderStatus.PLACED;
+    private OrderStatus status = OrderStatus.CREATED;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;

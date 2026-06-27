@@ -1,13 +1,13 @@
 package com.quickbite.backend.common.enums;
 
 public enum OrderStatus {
-    PLACED,
+    CREATED,
     CONFIRMED,
     PREPARING,
-    READY,
+    READY_FOR_PICKUP,
+    ASSIGNED,
     PICKED_UP,
     OUT_FOR_DELIVERY,
     DELIVERED,
-    CANCELLED,
-    REFUNDED
+    CANCELLED
 }

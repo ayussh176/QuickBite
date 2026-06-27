@@ -26,11 +26,13 @@ public final class AppConstants {
     public static final String ROLE_ADMIN = "ROLE_ADMIN";
 
     // ---------- Order Statuses ----------
-    public static final String ORDER_PLACED = "PLACED";
+    public static final String ORDER_CREATED = "CREATED";
     public static final String ORDER_CONFIRMED = "CONFIRMED";
     public static final String ORDER_PREPARING = "PREPARING";
-    public static final String ORDER_READY = "READY";
+    public static final String ORDER_READY_FOR_PICKUP = "READY_FOR_PICKUP";
+    public static final String ORDER_ASSIGNED = "ASSIGNED";
     public static final String ORDER_PICKED_UP = "PICKED_UP";
+    public static final String ORDER_OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY";
     public static final String ORDER_DELIVERED = "DELIVERED";
     public static final String ORDER_CANCELLED = "CANCELLED";
 
