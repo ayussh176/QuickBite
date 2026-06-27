@@ -26,6 +26,9 @@ public class Cart extends BaseEntity {
     @Builder.Default
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
+    @Column(name = "applied_coupon_code", length = 30)
+    private String appliedCouponCode;
+
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @ToString.Exclude
