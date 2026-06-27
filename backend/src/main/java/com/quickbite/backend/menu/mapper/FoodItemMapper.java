@@ -22,6 +22,8 @@ public interface FoodItemMapper {
     @Mapping(target = "category", ignore = true)
     @Mapping(target = "slug", ignore = true)
     @Mapping(target = "images", ignore = true)
+    @Mapping(target = "variants", ignore = true)
+    @Mapping(target = "addOns", ignore = true)
     FoodItem toEntity(FoodItemRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -29,6 +31,8 @@ public interface FoodItemMapper {
     @Mapping(target = "category", ignore = true)
     @Mapping(target = "slug", ignore = true)
     @Mapping(target = "images", ignore = true)
+    @Mapping(target = "variants", ignore = true)
+    @Mapping(target = "addOns", ignore = true)
     void updateEntityFromRequest(FoodItemRequest request, @MappingTarget FoodItem item);
 
     FoodImageDto toImageDto(FoodImage image);
@@ -36,4 +40,16 @@ public interface FoodItemMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "foodItem", ignore = true)
     FoodImage toImageEntity(FoodImageDto imageDto);
+
+    com.quickbite.backend.menu.dto.FoodItemVariantDto toVariantDto(com.quickbite.backend.menu.entity.FoodItemVariant variant);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "foodItem", ignore = true)
+    com.quickbite.backend.menu.entity.FoodItemVariant toVariantEntity(com.quickbite.backend.menu.dto.FoodItemVariantDto variantDto);
+
+    com.quickbite.backend.menu.dto.FoodItemAddOnDto toAddOnDto(com.quickbite.backend.menu.entity.FoodItemAddOn addOn);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "foodItem", ignore = true)
+    com.quickbite.backend.menu.entity.FoodItemAddOn toAddOnEntity(com.quickbite.backend.menu.dto.FoodItemAddOnDto addOnDto);
 }

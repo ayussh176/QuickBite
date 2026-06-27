@@ -40,4 +40,6 @@ public class FoodItemRequest {
     private Integer preparationTime;
 
     private List<FoodImageDto> images;
+    private List<FoodItemVariantDto> variants;
+    private List<FoodItemAddOnDto> addOns;
 }

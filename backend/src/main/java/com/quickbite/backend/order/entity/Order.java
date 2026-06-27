@@ -35,18 +35,22 @@ public class Order extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Customer customer;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "restaurant_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Restaurant restaurant;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "delivery_partner_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private DeliveryPartner deliveryPartner;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "delivery_address_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private CustomerAddress deliveryAddress;
 
     @Enumerated(EnumType.STRING)

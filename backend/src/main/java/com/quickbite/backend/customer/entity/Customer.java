@@ -44,6 +44,26 @@ public class Customer extends BaseEntity {
     @ToString.Exclude
     private List<CustomerAddress> addresses = new ArrayList<>();
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "customer_saved_restaurants",
+        joinColumns = @JoinColumn(name = "customer_id"),
+        inverseJoinColumns = @JoinColumn(name = "restaurant_id")
+    )
+    @Builder.Default
+    @ToString.Exclude
+    private List<com.quickbite.backend.restaurant.entity.Restaurant> savedRestaurants = new ArrayList<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "customer_wishlist",
+        joinColumns = @JoinColumn(name = "customer_id"),
+        inverseJoinColumns = @JoinColumn(name = "food_item_id")
+    )
+    @Builder.Default
+    @ToString.Exclude
+    private List<com.quickbite.backend.menu.entity.FoodItem> wishlist = new ArrayList<>();
+
     public void addAddress(CustomerAddress address) {
         addresses.add(address);
         address.setCustomer(this);

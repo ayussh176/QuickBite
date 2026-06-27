@@ -20,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.security.Principal;
 import java.util.List;
 
@@ -83,13 +84,18 @@ public class MenuController {
     // ==================== Food Item Endpoints ====================
 
     @GetMapping("/items")
-    @Operation(summary = "Get menu items with optional filters", description = "Retrieves a paginated list of active items under a restaurant, filterable by category ID and Food Type (VEG/NON_VEG)")
+    @Operation(summary = "Get menu items with advanced filtering and search", description = "Retrieves a paginated list of active items under a restaurant, supporting search keyword matching, category filtering, food type filtering, bestseller flag, price range limits, and custom sorting")
     public ResponseEntity<ApiResponse<Page<FoodItemResponse>>> getMenuItems(@PathVariable Long restaurantId,
+                                                                             @RequestParam(required = false) String search,
                                                                              @RequestParam(required = false) Long categoryId,
                                                                              @RequestParam(required = false) FoodType foodType,
+                                                                             @RequestParam(required = false) BigDecimal minPrice,
+                                                                             @RequestParam(required = false) BigDecimal maxPrice,
+                                                                             @RequestParam(required = false) Boolean bestseller,
                                                                              Pageable pageable) {
-        log.info("Fetching menu items for restaurant ID: {}", restaurantId);
-        Page<FoodItemResponse> response = menuService.getMenu(restaurantId, categoryId, foodType, pageable);
+        log.info("Searching menu items for restaurant ID: {} with query: {}", restaurantId, search);
+        Page<FoodItemResponse> response = menuService.searchFoodItems(restaurantId, search, categoryId, foodType,
+                minPrice, maxPrice, bestseller, pageable);
         return ResponseEntity.ok(ApiResponse.success("Menu items fetched successfully.", response));
     }
 

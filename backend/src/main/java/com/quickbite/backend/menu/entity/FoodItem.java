@@ -66,6 +66,16 @@ public class FoodItem extends BaseEntity {
     @ToString.Exclude
     private List<FoodImage> images = new ArrayList<>();
 
+    @OneToMany(mappedBy = "foodItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    @ToString.Exclude
+    private List<FoodItemVariant> variants = new ArrayList<>();
+
+    @OneToMany(mappedBy = "foodItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    @ToString.Exclude
+    private List<FoodItemAddOn> addOns = new ArrayList<>();
+
     public void addImage(FoodImage image) {
         images.add(image);
         image.setFoodItem(this);
@@ -74,5 +84,25 @@ public class FoodItem extends BaseEntity {
     public void removeImage(FoodImage image) {
         images.remove(image);
         image.setFoodItem(null);
+    }
+
+    public void addVariant(FoodItemVariant variant) {
+        variants.add(variant);
+        variant.setFoodItem(this);
+    }
+
+    public void removeVariant(FoodItemVariant variant) {
+        variants.remove(variant);
+        variant.setFoodItem(null);
+    }
+
+    public void addAddOn(FoodItemAddOn addOn) {
+        addOns.add(addOn);
+        addOn.setFoodItem(this);
+    }
+
+    public void removeAddOn(FoodItemAddOn addOn) {
+        addOns.remove(addOn);
+        addOn.setFoodItem(null);
     }
 }
