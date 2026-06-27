@@ -44,7 +44,12 @@ public class JwtTokenProvider {
      */
     public String generateToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        return generateToken(new HashMap<>(), userDetails.getUsername());
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", userDetails.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .findFirst()
+                .orElse("ROLE_CUSTOMER"));
+        return generateToken(claims, userDetails.getUsername());
     }
 
     /**

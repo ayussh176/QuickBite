@@ -1,30 +1,42 @@
 package com.quickbite.backend.security;
 
+import com.quickbite.backend.auth.entity.User;
+import com.quickbite.backend.auth.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.Collections;
 
-/**
- * Placeholder UserDetailsService.
- * <p>
- * This will be replaced with a real implementation that loads users
- * from the database once the auth module entities are created.
- * </p>
- */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
 
+    private final UserRepository userRepository;
+
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        // TODO: Replace with actual database lookup from auth module
-        log.warn("Using placeholder UserDetailsService — no users in database yet");
-        throw new UsernameNotFoundException("User not found with email: " + username);
+    @Transactional(readOnly = true)
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> {
+                    log.warn("Login attempt failed: user with email {} not found", email);
+                    return new UsernameNotFoundException("User not found with email: " + email);
+                });
+
+        return new org.springframework.security.core.userdetails.User(
+                user.getEmail(),
+                user.getPassword(),
+                user.isEmailVerified() || user.isPhoneVerified(), // enabled if active or verified
+                true, // accountNonExpired
+                true, // credentialsNonExpired
+                true, // accountNonLocked
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+        );
     }
 }

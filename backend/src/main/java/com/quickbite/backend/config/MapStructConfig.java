@@ -9,7 +9,8 @@ import org.mapstruct.ReportingPolicy;
  */
 @MapperConfig(
         componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE
+        unmappedTargetPolicy = ReportingPolicy.IGNORE,
+        builder = @org.mapstruct.Builder(disableBuilder = true)
 )
 public interface MapStructConfig {
 }
