@@ -7,7 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface DeliveryPartnerRepository extends JpaRepository<DeliveryPartner, Long> {
+public interface DeliveryPartnerRepository extends JpaRepository<DeliveryPartner, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<DeliveryPartner> {
     Optional<DeliveryPartner> findByUserId(Long userId);
     Optional<DeliveryPartner> findByUserEmail(String email);
     long countByVerifiedFalse();

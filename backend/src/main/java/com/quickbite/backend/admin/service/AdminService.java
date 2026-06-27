@@ -51,7 +51,7 @@ public class AdminService {
 
         BigDecimal totalRevenue = orderRepository.sumTotalAmountByStatus(OrderStatus.DELIVERED);
 
-        long pendingRestaurantApprovals = restaurantRepository.countByStatus(RestaurantStatus.PENDING);
+        long pendingRestaurantApprovals = restaurantRepository.countByStatus(RestaurantStatus.PENDING_APPROVAL);
         long pendingRiderVerifications = deliveryPartnerRepository.countByVerifiedFalse();
         long pendingComplaints = complaintRepository.findByStatus(ComplaintStatus.PENDING, Pageable.unpaged()).getTotalElements();
 
@@ -72,13 +72,13 @@ public class AdminService {
     @Transactional(readOnly = true)
     public Page<UserManagementResponse> listUsers(Role role, AccountStatus status, Pageable pageable) {
         if (role != null && status != null) {
-            return userRepository.findByRoleAndStatus(role, status, pageable)
+            return userRepository.findByRoleAndAccountStatus(role, status, pageable)
                     .map(adminMapper::toUserResponse);
         } else if (role != null) {
             return userRepository.findByRole(role, pageable)
                     .map(adminMapper::toUserResponse);
         } else if (status != null) {
-            return userRepository.findByStatus(status, pageable)
+            return userRepository.findByAccountStatus(status, pageable)
                     .map(adminMapper::toUserResponse);
         }
         return userRepository.findAll(pageable)
@@ -95,10 +95,10 @@ public class AdminService {
             throw new BadRequestException("Admin accounts status cannot be modified.");
         }
 
-        user.setStatus(user.getStatus() == AccountStatus.ACTIVE ? AccountStatus.BLOCKED : AccountStatus.ACTIVE);
+        user.setAccountStatus(user.getAccountStatus() == AccountStatus.ACTIVE ? AccountStatus.SUSPENDED : AccountStatus.ACTIVE);
         User saved = userRepository.save(user);
 
-        log.info("User ID {} status updated to {}", userId, saved.getStatus());
+        log.info("User ID {} status updated to {}", userId, saved.getAccountStatus());
         return adminMapper.toUserResponse(saved);
     }
 
@@ -125,7 +125,7 @@ public class AdminService {
         if (status == RestaurantStatus.APPROVED) {
             User owner = restaurant.getUser();
             if (owner != null) {
-                owner.setStatus(AccountStatus.ACTIVE);
+                owner.setAccountStatus(AccountStatus.ACTIVE);
                 userRepository.save(owner);
             }
         }
@@ -153,12 +153,12 @@ public class AdminService {
         if (verified) {
             User user = partner.getUser();
             if (user != null) {
-                user.setStatus(AccountStatus.ACTIVE);
+                user.setAccountStatus(AccountStatus.ACTIVE);
                 userRepository.save(user);
             }
         }
 
-        return partnerRepository.save(partner);
+        return deliveryPartnerRepository.save(partner);
     }
 
     // ==================== General Orders ====================
