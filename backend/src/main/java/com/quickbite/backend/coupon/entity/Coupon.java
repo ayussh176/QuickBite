@@ -56,4 +56,9 @@ public class Coupon extends BaseEntity {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "restaurant_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private com.quickbite.backend.restaurant.entity.Restaurant restaurant;
 }

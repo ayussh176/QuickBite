@@ -59,6 +59,12 @@ public class DeliveryPartner extends BaseEntity {
     @Column(name = "profile_image_url", length = 500)
     private String profileImageUrl;
 
+    @Column(name = "driving_license_number", length = 50)
+    private String drivingLicenseNumber;
+
+    @Column(name = "aadhar_number", length = 20)
+    private String aadharNumber;
+
     @OneToOne(mappedBy = "deliveryPartner", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Vehicle vehicle;
 

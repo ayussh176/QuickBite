@@ -21,6 +21,7 @@ public class WalletTransaction extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id", nullable = false)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Wallet wallet;
 
     @Enumerated(EnumType.STRING)

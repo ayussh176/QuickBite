@@ -12,4 +12,5 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
     Optional<Restaurant> findByUserEmail(String email);
     Optional<Restaurant> findBySlug(String slug);
     boolean existsByName(String name);
+    long countByStatus(com.quickbite.backend.common.enums.RestaurantStatus status);
 }

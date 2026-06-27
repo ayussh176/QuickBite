@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface DeliveryPartnerRepository extends JpaRepository<DeliveryPartner, Long> {
     Optional<DeliveryPartner> findByUserId(Long userId);
     Optional<DeliveryPartner> findByUserEmail(String email);
+    long countByVerifiedFalse();
 }
