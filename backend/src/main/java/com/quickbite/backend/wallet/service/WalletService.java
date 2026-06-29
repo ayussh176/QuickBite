@@ -31,8 +31,10 @@ public class WalletService {
     private final CustomerRepository customerRepository;
 
     private final WalletMapper walletMapper;
+    private final com.quickbite.backend.common.service.CacheService cacheService;
 
     @Transactional
+    @org.springframework.cache.annotation.Cacheable(value = "wallets", key = "#email")
     public WalletResponse getWallet(String email) {
         log.info("Loading wallet for customer: {}", email);
         Customer customer = getCustomerByEmail(email);
@@ -58,6 +60,7 @@ public class WalletService {
                 .balanceAfter(savedWallet.getBalance())
                 .build();
         transactionRepository.save(transaction);
+        cacheService.evictWallet(email);
 
         return walletMapper.toResponse(savedWallet);
     }
@@ -81,6 +84,9 @@ public class WalletService {
                 .balanceAfter(savedWallet.getBalance())
                 .build();
         transactionRepository.save(transaction);
+        if (customer.getUser() != null) {
+            cacheService.evictWallet(customer.getUser().getEmail());
+        }
 
         return walletMapper.toResponse(savedWallet);
     }

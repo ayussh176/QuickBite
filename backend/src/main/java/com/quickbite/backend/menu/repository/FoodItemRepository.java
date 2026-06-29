@@ -17,6 +17,8 @@ public interface FoodItemRepository extends JpaRepository<FoodItem, Long>, JpaSp
     List<FoodItem> findByCategoryId(Long categoryId);
     Optional<FoodItem> findByRestaurantIdAndSlug(Long restaurantId, String slug);
     boolean existsByRestaurantIdAndName(Long restaurantId, String name);
+    long countByRestaurantId(Long restaurantId);
+    long countByRestaurantIdAndAvailable(Long restaurantId, boolean available);
     
     // Pageable search queries
     Page<FoodItem> findByRestaurantIdAndAvailable(Long restaurantId, boolean available, Pageable pageable);

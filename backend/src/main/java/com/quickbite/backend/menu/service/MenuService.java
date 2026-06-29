@@ -51,55 +51,79 @@ public class MenuService {
 
     private final FoodCategoryMapper categoryMapper;
     private final FoodItemMapper foodItemMapper;
+    private final com.quickbite.backend.common.service.CacheService cacheService;
 
     // ==================== Category Operations ====================
 
     @Transactional
-    public CategoryResponse createCategory(String ownerEmail, CategoryRequest request) {
+    public CategoryResponse createCategory(String ownerEmail, Long restaurantId, CategoryRequest request) {
         log.info("Creating category for restaurant owner: {}", ownerEmail);
         Restaurant restaurant = getRestaurantByOwnerEmail(ownerEmail);
+        validateRestaurantOwnership(restaurant, restaurantId);
 
-        if (categoryRepository.existsByRestaurantIdAndName(restaurant.getId(), request.getName())) {
-            throw new BadRequestException("Category already exists with name: " + request.getName());
+        var existingCategory = categoryRepository.findByRestaurantIdAndNameIgnoreCase(restaurant.getId(), request.getName());
+        if (existingCategory.isPresent()) {
+            FoodCategory category = existingCategory.get();
+            if (category.isActive()) {
+                throw new BadRequestException("Category already exists with name: " + request.getName());
+            }
+
+            categoryMapper.updateEntityFromRequest(request, category);
+            normalizeCategory(category, request);
+            category.setActive(true);
+            FoodCategory savedCategory = categoryRepository.save(category);
+            log.info("Category reactivated successfully with ID: {}", savedCategory.getId());
+            return categoryMapper.toResponse(savedCategory);
         }
 
         FoodCategory category = categoryMapper.toEntity(request);
         category.setRestaurant(restaurant);
+        normalizeCategory(category, request);
 
         FoodCategory savedCategory = categoryRepository.save(category);
         log.info("Category created successfully with ID: {}", savedCategory.getId());
+        cacheService.evictCategories(restaurantId);
         return categoryMapper.toResponse(savedCategory);
     }
 
     @Transactional
-    public CategoryResponse updateCategory(String ownerEmail, Long categoryId, CategoryRequest request) {
+    public CategoryResponse updateCategory(String ownerEmail, Long restaurantId, Long categoryId, CategoryRequest request) {
         log.info("Updating category ID: {} for owner: {}", categoryId, ownerEmail);
         Restaurant restaurant = getRestaurantByOwnerEmail(ownerEmail);
+        validateRestaurantOwnership(restaurant, restaurantId);
         FoodCategory category = getCategoryById(categoryId);
 
         validateRestaurantOwnership(restaurant, category.getRestaurant().getId());
 
         categoryMapper.updateEntityFromRequest(request, category);
+        normalizeCategory(category, request);
         FoodCategory savedCategory = categoryRepository.save(category);
+        cacheService.evictCategories(restaurantId);
 
         return categoryMapper.toResponse(savedCategory);
     }
 
     @Transactional
-    public void deleteCategory(String ownerEmail, Long categoryId) {
+    public void deleteCategory(String ownerEmail, Long restaurantId, Long categoryId) {
         log.info("Deleting category ID: {} for owner: {}", categoryId, ownerEmail);
         Restaurant restaurant = getRestaurantByOwnerEmail(ownerEmail);
+        validateRestaurantOwnership(restaurant, restaurantId);
         FoodCategory category = getCategoryById(categoryId);
 
         validateRestaurantOwnership(restaurant, category.getRestaurant().getId());
 
-        categoryRepository.delete(category);
-        log.info("Category ID: {} deleted successfully", categoryId);
+        category.setActive(false);
+        category.getFoodItems().forEach(item -> item.setAvailable(false));
+        categoryRepository.save(category);
+        log.info("Category ID: {} deactivated successfully", categoryId);
+        cacheService.evictCategories(restaurantId);
+        cacheService.evictMenu(restaurantId);
     }
 
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = "categories", key = "#restaurantId")
     public List<CategoryResponse> getCategoriesByRestaurant(Long restaurantId) {
-        return categoryRepository.findByRestaurantIdOrderBySortOrderAsc(restaurantId)
+        return categoryRepository.findByRestaurantIdAndActiveTrueOrderBySortOrderAsc(restaurantId)
                 .stream()
                 .map(categoryMapper::toResponse)
                 .collect(Collectors.toList());
@@ -108,12 +132,16 @@ public class MenuService {
     // ==================== Food Item Operations ====================
 
     @Transactional
-    public FoodItemResponse createFoodItem(String ownerEmail, FoodItemRequest request) {
+    public FoodItemResponse createFoodItem(String ownerEmail, Long restaurantId, FoodItemRequest request) {
         log.info("Creating food item for restaurant owner: {}", ownerEmail);
         Restaurant restaurant = getRestaurantByOwnerEmail(ownerEmail);
+        validateRestaurantOwnership(restaurant, restaurantId);
 
         FoodCategory category = getCategoryById(request.getCategoryId());
         validateRestaurantOwnership(restaurant, category.getRestaurant().getId());
+        if (!category.isActive()) {
+            throw new BadRequestException("Cannot add food items to an inactive category.");
+        }
 
         if (foodItemRepository.existsByRestaurantIdAndName(restaurant.getId(), request.getName())) {
             throw new BadRequestException("Food item already exists with name: " + request.getName());
@@ -123,6 +151,7 @@ public class MenuService {
         foodItem.setRestaurant(restaurant);
         foodItem.setCategory(category);
         foodItem.setSlug(SlugUtils.toSlug(request.getName()) + "-" + UUID.randomUUID().toString().substring(0, 8));
+        normalizeFoodItem(foodItem, request);
 
         // Save food item first
         FoodItem savedItem = foodItemRepository.save(foodItem);
@@ -163,22 +192,28 @@ public class MenuService {
         inventoryRepository.save(inventory);
 
         log.info("Food item created successfully with ID: {} and default stock initialized", fullySavedItem.getId());
+        cacheService.evictMenu(restaurantId);
         return foodItemMapper.toResponse(fullySavedItem);
     }
 
     @Transactional
-    public FoodItemResponse updateFoodItem(String ownerEmail, Long itemId, FoodItemRequest request) {
+    public FoodItemResponse updateFoodItem(String ownerEmail, Long restaurantId, Long itemId, FoodItemRequest request) {
         log.info("Updating food item ID: {} for owner: {}", itemId, ownerEmail);
         Restaurant restaurant = getRestaurantByOwnerEmail(ownerEmail);
+        validateRestaurantOwnership(restaurant, restaurantId);
         FoodItem foodItem = getFoodItemById(itemId);
 
         validateRestaurantOwnership(restaurant, foodItem.getRestaurant().getId());
 
         FoodCategory category = getCategoryById(request.getCategoryId());
         validateRestaurantOwnership(restaurant, category.getRestaurant().getId());
+        if (!category.isActive()) {
+            throw new BadRequestException("Cannot move food items to an inactive category.");
+        }
 
         foodItemMapper.updateEntityFromRequest(request, foodItem);
         foodItem.setCategory(category);
+        normalizeFoodItem(foodItem, request);
 
         // Sync images (clear and rebuild)
         if (request.getImages() != null) {
@@ -209,22 +244,30 @@ public class MenuService {
 
         FoodItem savedItem = foodItemRepository.save(foodItem);
         log.info("Food item ID: {} updated successfully", savedItem.getId());
+        cacheService.evictMenu(restaurantId);
         return foodItemMapper.toResponse(savedItem);
     }
 
     @Transactional
-    public void deleteFoodItem(String ownerEmail, Long itemId) {
+    public void deleteFoodItem(String ownerEmail, Long restaurantId, Long itemId) {
         log.info("Deleting food item ID: {} for owner: {}", itemId, ownerEmail);
         Restaurant restaurant = getRestaurantByOwnerEmail(ownerEmail);
+        validateRestaurantOwnership(restaurant, restaurantId);
         FoodItem foodItem = getFoodItemById(itemId);
 
         validateRestaurantOwnership(restaurant, foodItem.getRestaurant().getId());
 
-        foodItemRepository.delete(foodItem);
-        log.info("Food item ID: {} deleted successfully", itemId);
+        // Remove associated inventory record first to avoid FK constraint violation
+        inventoryRepository.findByFoodItemId(itemId).ifPresent(inventoryRepository::delete);
+
+        foodItem.setAvailable(false);
+        foodItemRepository.save(foodItem);
+        log.info("Food item ID: {} deactivated successfully", itemId);
+        cacheService.evictMenu(restaurantId);
     }
 
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = "menu", key = "#restaurantId")
     public Page<FoodItemResponse> getMenu(Long restaurantId, Long categoryId, FoodType foodType, Pageable pageable) {
         Specification<FoodItem> spec = (root, query, cb) -> cb.and(
                 cb.equal(root.get("restaurant").get("id"), restaurantId),
@@ -314,6 +357,24 @@ public class MenuService {
         if (!ownerRestaurant.getId().equals(targetRestaurantId)) {
             log.error("Access denied: Restaurant ID {} does not own target ID {}", ownerRestaurant.getId(), targetRestaurantId);
             throw new ForbiddenException("You do not have permission to manage this menu.");
+        }
+    }
+
+    private void normalizeCategory(FoodCategory category, CategoryRequest request) {
+        if (request.getActive() == null) {
+            category.setActive(true);
+        }
+        if (category.getSortOrder() == null) {
+            category.setSortOrder(0);
+        }
+    }
+
+    private void normalizeFoodItem(FoodItem foodItem, FoodItemRequest request) {
+        if (request.getAvailable() == null) {
+            foodItem.setAvailable(true);
+        }
+        if (request.getBestseller() == null) {
+            foodItem.setBestseller(false);
         }
     }
 }

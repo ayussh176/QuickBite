@@ -32,6 +32,7 @@ import com.quickbite.backend.order.repository.OrderRepository;
 import com.quickbite.backend.payment.entity.Payment;
 import com.quickbite.backend.payment.repository.PaymentRepository;
 import com.quickbite.backend.restaurant.entity.Restaurant;
+import com.quickbite.backend.restaurant.repository.RestaurantRepository;
 import com.quickbite.backend.wallet.entity.Wallet;
 import com.quickbite.backend.wallet.entity.WalletTransaction;
 import com.quickbite.backend.wallet.repository.WalletRepository;
@@ -68,8 +69,21 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final CouponRepository couponRepository;
     private final DeliveryPartnerRepository deliveryPartnerRepository;
+    private final RestaurantRepository restaurantRepository;
 
     private final OrderMapper orderMapper;
+    private final org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate;
+    private final com.quickbite.backend.common.service.CacheService cacheService;
+
+    private static final List<OrderStatus> RESTAURANT_QUEUE_STATUSES = List.of(
+            OrderStatus.CREATED,
+            OrderStatus.CONFIRMED,
+            OrderStatus.PREPARING,
+            OrderStatus.READY_FOR_PICKUP,
+            OrderStatus.ASSIGNED,
+            OrderStatus.PICKED_UP,
+            OrderStatus.OUT_FOR_DELIVERY
+    );
 
     @Transactional
     public OrderResponse placeOrder(String email, PlaceOrderRequest request) {
@@ -212,6 +226,12 @@ public class OrderService {
         cartRepository.save(cart);
 
         log.info("Order placed successfully. Order Number: {}", savedOrder.getOrderNumber());
+        cacheService.evictWallet(email);
+        publishOrderUpdate(savedOrder);
+        paymentRepository.findByOrderId(savedOrder.getId()).ifPresent(p -> {
+            publishPaymentUpdate(p, savedOrder);
+        });
+
         return orderMapper.toResponse(savedOrder);
     }
 
@@ -274,6 +294,11 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(order);
         log.info("Order ID: {} cancelled and refunded successfully", orderId);
+        cacheService.evictWallet(email);
+        publishOrderUpdate(savedOrder);
+        paymentRepository.findByOrderId(savedOrder.getId()).ifPresent(p -> {
+            publishPaymentUpdate(p, savedOrder);
+        });
 
         return orderMapper.toResponse(savedOrder);
     }
@@ -295,6 +320,22 @@ public class OrderService {
         Customer customer = customerRepository.findByUserEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer", "email", email));
         return orderRepository.findByCustomerIdOrderByPlacedAtDesc(customer.getId(), pageable)
+                .map(orderMapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> getRestaurantOrderHistory(String email, Pageable pageable) {
+        Restaurant restaurant = restaurantRepository.findByUserEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Restaurant", "email", email));
+        return orderRepository.findByRestaurantIdOrderByPlacedAtDesc(restaurant.getId(), pageable)
+                .map(orderMapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> getRestaurantOrderQueue(String email, Pageable pageable) {
+        Restaurant restaurant = restaurantRepository.findByUserEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Restaurant", "email", email));
+        return orderRepository.findByRestaurantIdAndStatusInOrderByPlacedAtAsc(restaurant.getId(), RESTAURANT_QUEUE_STATUSES, pageable)
                 .map(orderMapper::toResponse);
     }
 
@@ -324,7 +365,7 @@ public class OrderService {
                 }
                 break;
             case PICKED_UP:
-                order.setPicked_up_at(LocalDateTime.now());
+                order.setPickedUpAt(LocalDateTime.now());
                 break;
             case DELIVERED:
                 order.setDeliveredAt(LocalDateTime.now());
@@ -347,6 +388,13 @@ public class OrderService {
         }
 
         Order savedOrder = orderRepository.save(order);
+        publishOrderUpdate(savedOrder);
+        paymentRepository.findByOrderId(savedOrder.getId()).ifPresent(p -> {
+            publishPaymentUpdate(p, savedOrder);
+        });
+        if (savedOrder.getCustomer() != null && savedOrder.getCustomer().getUser() != null) {
+            cacheService.evictWallet(savedOrder.getCustomer().getUser().getEmail());
+        }
         return orderMapper.toResponse(savedOrder);
     }
 
@@ -394,5 +442,49 @@ public class OrderService {
                 .paymentMethod(order.getPaymentMethod().name())
                 .transactionId(payment.getTransactionId())
                 .build();
+    }
+
+    private void publishOrderUpdate(Order order) {
+        try {
+            com.quickbite.backend.order.dto.OrderMessage msg = com.quickbite.backend.order.dto.OrderMessage.builder()
+                    .orderId(order.getId())
+                    .orderNumber(order.getOrderNumber())
+                    .status(order.getStatus())
+                    .customerEmail(order.getCustomer().getUser().getEmail())
+                    .restaurantEmail(order.getRestaurant().getUser().getEmail())
+                    .riderEmail(order.getDeliveryPartner() != null ? order.getDeliveryPartner().getUser().getEmail() : null)
+                    .build();
+
+            rabbitTemplate.convertAndSend(
+                    com.quickbite.backend.constants.RabbitMQConstants.ORDER_EXCHANGE,
+                    "order.status." + order.getId(),
+                    msg
+            );
+            log.info("Published order update to RabbitMQ for order number: {}", order.getOrderNumber());
+        } catch (Exception e) {
+            log.error("Failed to publish order update to RabbitMQ: {}", e.getMessage(), e);
+        }
+    }
+
+    private void publishPaymentUpdate(Payment payment, Order order) {
+        try {
+            com.quickbite.backend.payment.dto.PaymentMessage msg = com.quickbite.backend.payment.dto.PaymentMessage.builder()
+                    .paymentId(payment.getId())
+                    .orderId(order.getId())
+                    .orderNumber(order.getOrderNumber())
+                    .status(payment.getStatus())
+                    .amount(payment.getAmount())
+                    .customerEmail(order.getCustomer().getUser().getEmail())
+                    .build();
+
+            rabbitTemplate.convertAndSend(
+                    com.quickbite.backend.constants.RabbitMQConstants.PAYMENT_EXCHANGE,
+                    "payment.status." + payment.getId(),
+                    msg
+            );
+            log.info("Published payment update to RabbitMQ for order number: {}", order.getOrderNumber());
+        } catch (Exception e) {
+            log.error("Failed to publish payment update to RabbitMQ: {}", e.getMessage(), e);
+        }
     }
 }

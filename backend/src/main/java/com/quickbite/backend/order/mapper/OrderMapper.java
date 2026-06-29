@@ -20,7 +20,6 @@ public interface OrderMapper {
     @Mapping(target = "deliveryPartnerId", source = "deliveryPartner.id")
     @Mapping(target = "deliveryPartnerName", expression = "java(order.getDeliveryPartner() != null ? order.getDeliveryPartner().getFirstName() + \" \" + order.getDeliveryPartner().getLastName() : null)")
     @Mapping(target = "deliveryPartnerPhone", expression = "java(order.getDeliveryPartner() != null ? order.getDeliveryPartner().getPhone() : null)")
-    @Mapping(target = "pickedUpAt", source = "picked_up_at")
     OrderResponse toResponse(Order order);
 
     @Mapping(target = "foodItemId", source = "foodItem.id")

@@ -24,6 +24,7 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
   const navItems = [
     { label: "Dashboard", path: "/merchant/dashboard", icon: "dashboard" },
     { label: "Menu Management", path: "/merchant/menu", icon: "restaurant_menu" },
+    { label: "Inventory Management", path: "/merchant/inventory", icon: "inventory_2" },
     { label: "Order Management", path: "/merchant/orders", icon: "receipt_long" },
     { label: "Revenue Analytics", path: "/merchant/revenue", icon: "insights" },
     { label: "Restaurant Profile", path: "/merchant/profile", icon: "storefront" },
@@ -56,7 +57,7 @@ export const MerchantLayout: React.FC<MerchantLayoutProps> = ({ children }) => {
       </header>
 
       {/* Main Container with Sidebar */}
-      <div className="flex flex-1">
+      <div className="flex flex-1 h-[calc(100vh-4rem)] overflow-hidden">
         {/* Sidebar */}
         <aside className="w-64 bg-surface-container-lowest border-r border-outline-variant py-6 flex flex-col justify-between shrink-0">
           <ul className="space-y-1 px-4">

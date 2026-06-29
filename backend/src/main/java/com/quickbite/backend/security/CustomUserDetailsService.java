@@ -2,6 +2,7 @@ package com.quickbite.backend.security;
 
 import com.quickbite.backend.auth.entity.User;
 import com.quickbite.backend.auth.repository.UserRepository;
+import com.quickbite.backend.common.enums.AccountStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -29,13 +30,17 @@ public class CustomUserDetailsService implements UserDetailsService {
                     return new UsernameNotFoundException("User not found with email: " + email);
                 });
 
+        boolean enabled = user.getAccountStatus() != AccountStatus.INACTIVE
+                && user.getAccountStatus() != AccountStatus.SUSPENDED;
+        boolean accountNonLocked = user.getAccountStatus() != AccountStatus.SUSPENDED;
+
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
                 user.getPassword(),
-                user.isEmailVerified() || user.isPhoneVerified(), // enabled if active or verified
+                enabled,
                 true, // accountNonExpired
                 true, // credentialsNonExpired
-                true, // accountNonLocked
+                accountNonLocked,
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
         );
     }

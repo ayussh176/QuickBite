@@ -40,4 +40,15 @@ public class RegisterRequest {
     // Restaurant
     private String restaurantName;
     private String cuisineType;
+    private String fssaiLicense;
+    private String gstNumber;
+    private String restaurantDescription;
+    private String address;
+    private String addressLine1;
+    private String addressLine2;
+    private String city;
+    private String state;
+    private String zipCode;
+    private Double latitude;
+    private Double longitude;
 }

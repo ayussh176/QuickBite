@@ -23,6 +23,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
   const navItems = [
     { label: "Dashboard", path: "/admin/dashboard", icon: "admin_panel_settings" },
+    { label: "User Management", path: "/admin/users", icon: "group" },
+    { label: "Restaurant Management", path: "/admin/restaurants", icon: "storefront" },
+    { label: "Global Orders", path: "/admin/orders", icon: "receipt_long" },
     { label: "Approvals & Onboarding", path: "/admin/onboarding", icon: "how_to_reg" },
     { label: "Global Analytics", path: "/admin/analytics", icon: "analytics" },
     { label: "Support & Disputes", path: "/admin/support", icon: "support_agent" },
@@ -52,7 +55,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       </header>
 
       {/* Main Container with Sidebar */}
-      <div className="flex flex-1">
+      <div className="flex flex-1 h-[calc(100vh-4rem)] overflow-hidden">
         {/* Sidebar */}
         <aside className="w-64 bg-surface-container-lowest border-r border-outline-variant py-6 flex flex-col justify-between shrink-0">
           <ul className="space-y-1 px-4">

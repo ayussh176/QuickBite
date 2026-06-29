@@ -1,5 +1,6 @@
 package com.quickbite.backend.order.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.quickbite.backend.common.BaseEntity;
 import com.quickbite.backend.common.enums.OrderStatus;
 import com.quickbite.backend.common.enums.PaymentMethod;
@@ -35,22 +36,22 @@ public class Order extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
-    @com.fasterxml.jackson.annotation.JsonIgnore
+    @JsonIgnore
     private Customer customer;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "restaurant_id", nullable = false)
-    @com.fasterxml.jackson.annotation.JsonIgnore
+    @JsonIgnore
     private Restaurant restaurant;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "delivery_partner_id")
-    @com.fasterxml.jackson.annotation.JsonIgnore
+    @JsonIgnore
     private DeliveryPartner deliveryPartner;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "delivery_address_id", nullable = false)
-    @com.fasterxml.jackson.annotation.JsonIgnore
+    @JsonIgnore
     private CustomerAddress deliveryAddress;
 
     @Enumerated(EnumType.STRING)
@@ -96,7 +97,7 @@ public class Order extends BaseEntity {
     private LocalDateTime preparedAt;
 
     @Column(name = "picked_up_at")
-    private LocalDateTime picked_up_at;
+    private LocalDateTime pickedUpAt;
 
     @Column(name = "delivered_at")
     private LocalDateTime deliveredAt;

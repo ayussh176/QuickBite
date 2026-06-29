@@ -11,6 +11,7 @@ import org.mapstruct.Mapping;
 @Mapper(config = MapStructConfig.class)
 public interface AdminMapper {
 
+    @Mapping(target = "status", source = "accountStatus")
     UserManagementResponse toUserResponse(User user);
 
     @Mapping(target = "customerId", source = "customer.id")

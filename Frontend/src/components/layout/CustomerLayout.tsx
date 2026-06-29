@@ -3,7 +3,8 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "../../redux/store";
 import { logout } from "../../redux/authSlice";
-import { clearCart } from "../../redux/cartSlice";
+import { clearCart, setCart } from "../../redux/cartSlice";
+import { apiService } from "../../services/api/apiClient";
 import toast from "react-hot-toast";
 
 interface CustomerLayoutProps {
@@ -16,6 +17,14 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children }) => {
   const dispatch = useDispatch();
   const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
   const cart = useSelector((state: RootState) => state.cart);
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      apiService.getCart().then((mappedCart) => {
+        dispatch(setCart(mappedCart));
+      }).catch(err => console.error("Error fetching cart", err));
+    }
+  }, [isAuthenticated, dispatch]);
 
   const cartQuantity = cart.items.reduce((acc, item) => acc + item.quantity, 0);
 

@@ -60,6 +60,7 @@ import {
   MerchantStaff,
   MerchantOffers,
   MerchantReviews,
+  MerchantInventory,
 } from "../pages/MerchantPages";
 
 // Import Admin Pages
@@ -68,6 +69,9 @@ import {
   AdminOnboarding,
   AdminAnalytics,
   AdminSupport,
+  AdminUsers,
+  AdminRestaurants,
+  AdminOrders,
 } from "../pages/AdminPages";
 
 // Role Protection Wrapper Component
@@ -149,6 +153,7 @@ export const AppRoutes: React.FC = () => {
                 <Route path="dashboard" element={<MerchantDashboard />} />
                 <Route path="menu" element={<MerchantMenu />} />
                 <Route path="menu/edit/:id" element={<MerchantEditItem />} />
+                <Route path="inventory" element={<MerchantInventory />} />
                 <Route path="orders" element={<MerchantOrders />} />
                 <Route path="revenue" element={<MerchantRevenue />} />
                 <Route path="profile" element={<MerchantProfile />} />
@@ -170,6 +175,9 @@ export const AppRoutes: React.FC = () => {
             <AdminLayout>
               <Routes>
                 <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="restaurants" element={<AdminRestaurants />} />
+                <Route path="orders" element={<AdminOrders />} />
                 <Route path="onboarding" element={<AdminOnboarding />} />
                 <Route path="analytics" element={<AdminAnalytics />} />
                 <Route path="support" element={<AdminSupport />} />

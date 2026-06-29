@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState } from "../redux/store";
-import { addToCart, removeFromCart, clearCart } from "../redux/cartSlice";
+import { clearCart, setCart } from "../redux/cartSlice";
 import { updateWalletBalance } from "../redux/authSlice";
 import { apiService } from "../services/api/apiClient";
-import type { Restaurant, MenuItem, Order, WalletTransaction } from "../services/api/mockData";
+import type { Restaurant, MenuItem, Order, WalletTransaction } from "../services/api/apiClient";
 import { QRCodeSVG } from "qrcode.react";
 import toast from "react-hot-toast";
 
@@ -222,6 +222,7 @@ export const RestaurantDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const location = useLocation();
   const [restaurant, setRestaurant] = useState<Restaurant | undefined>(undefined);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -274,15 +275,9 @@ export const RestaurantDetails: React.FC = () => {
       });
     }
 
-    dispatch(
-      addToCart({
-        item: selectedItem,
-        quantity,
-        customizations: choicesList,
-        customizationPrice: extraPrice,
-        restaurant: { id: restaurant.id, name: restaurant.name, image: restaurant.imageUrl }
-      })
-    );
+    apiService.addCartItem(selectedItem.id, quantity, choicesList.join(",")).then((mappedCart) => {
+      dispatch(setCart(mappedCart));
+    });
 
     toast.success(`${selectedItem.name} added to cart`);
     setSelectedItem(null); // close dialog
@@ -310,9 +305,24 @@ export const RestaurantDetails: React.FC = () => {
 
       {/* Nav tabs */}
       <div className="flex gap-4 border-b border-outline-variant pb-2">
-        <Link to={`/customer/restaurant/${id}`} className="text-primary-container font-bold border-b-2 border-primary-container pb-2">Menu</Link>
-        <Link to={`/customer/restaurant/${id}/about`} className="text-secondary font-semibold hover:text-primary pb-2">About</Link>
-        <Link to={`/customer/restaurant/${id}/reviews`} className="text-secondary font-semibold hover:text-primary pb-2">Reviews</Link>
+        <Link 
+          to={`/customer/restaurant/${id}`} 
+          className={`${location.pathname === `/customer/restaurant/${id}` ? "text-primary-container border-b-2 border-primary-container pb-2 font-bold" : "text-secondary font-semibold hover:text-primary pb-2"}`}
+        >
+          Menu
+        </Link>
+        <Link 
+          to={`/customer/restaurant/${id}/about`} 
+          className={`${location.pathname === `/customer/restaurant/${id}/about` ? "text-primary-container border-b-2 border-primary-container pb-2 font-bold" : "text-secondary font-semibold hover:text-primary pb-2"}`}
+        >
+          About
+        </Link>
+        <Link 
+          to={`/customer/restaurant/${id}/reviews`} 
+          className={`${location.pathname === `/customer/restaurant/${id}/reviews` ? "text-primary-container border-b-2 border-primary-container pb-2 font-bold" : "text-secondary font-semibold hover:text-primary pb-2"}`}
+        >
+          Reviews
+        </Link>
       </div>
 
       {/* Menu & Cart layout */}
@@ -351,13 +361,10 @@ export const RestaurantDetails: React.FC = () => {
                       if (item.customizable) {
                         setSelectedItem(item);
                       } else {
-                        dispatch(addToCart({
-                          item,
-                          quantity: 1,
-                          customizationPrice: 0,
-                          restaurant: { id: restaurant.id, name: restaurant.name, image: restaurant.imageUrl }
-                        }));
-                        toast.success(`${item.name} added to cart`);
+                        apiService.addCartItem(item.id, 1).then((mappedCart) => {
+                          dispatch(setCart(mappedCart));
+                          toast.success(`${item.name} added to cart`);
+                        });
                       }
                     }}
                     className="bg-white border border-primary-container text-primary-container font-extrabold px-6 py-1 rounded-full text-xs hover:bg-primary-container/5 transition-all shadow-sm"
@@ -385,19 +392,16 @@ export const RestaurantDetails: React.FC = () => {
                     <div className="text-xs font-bold text-on-surface">₹{cartItem.price * cartItem.quantity}</div>
                   </div>
                   <div className="flex items-center gap-2 bg-surface border border-outline-variant rounded-full px-2 py-0.5 text-xs font-bold">
-                    <button onClick={() => dispatch(removeFromCart(cartItem.id))}>-</button>
+                    <button onClick={() => {
+                      if (cartItem.quantity > 1) {
+                        apiService.updateCartItem(cartItem.id, cartItem.quantity - 1).then((mappedCart) => dispatch(setCart(mappedCart)));
+                      } else {
+                        apiService.removeCartItem(cartItem.id).then((mappedCart) => dispatch(setCart(mappedCart)));
+                      }
+                    }}>-</button>
                     <span>{cartItem.quantity}</span>
                     <button onClick={() => {
-                      const origItem = restaurant.menu.find(m => m.id === cartItem.menuItemId);
-                      if (origItem) {
-                        dispatch(addToCart({
-                          item: origItem,
-                          quantity: 1,
-                          customizations: cartItem.customizations,
-                          customizationPrice: cartItem.price - origItem.price,
-                          restaurant: { id: restaurant.id, name: restaurant.name, image: restaurant.imageUrl }
-                        }));
-                      }
+                      apiService.updateCartItem(cartItem.id, cartItem.quantity + 1).then((mappedCart) => dispatch(setCart(mappedCart)));
                     }}>+</button>
                   </div>
                 </div>
@@ -496,6 +500,7 @@ export const RestaurantDetails: React.FC = () => {
 export const AboutRestaurant: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [restaurant, setRestaurant] = useState<Restaurant | undefined>(undefined);
+  const location = useLocation();
 
   useEffect(() => {
     if (id) {
@@ -503,11 +508,48 @@ export const AboutRestaurant: React.FC = () => {
     }
   }, [id]);
 
-  if (!restaurant) return <div>Loading...</div>;
+  if (!restaurant) return <div className="text-center py-12 text-secondary">Loading...</div>;
 
   return (
     <div className="space-y-6">
-      <h2 className="text-headline-md font-bold text-on-surface">About {restaurant.name}</h2>
+      {/* Banner */}
+      <div 
+        className="h-64 rounded-2xl overflow-hidden relative flex items-end p-8 bg-cover bg-center" 
+        style={{ backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.1)), url(${restaurant.bannerUrl})` }}
+      >
+        <div className="text-white space-y-2">
+          <h2 className="text-3xl font-extrabold">{restaurant.name}</h2>
+          <p className="opacity-90 text-sm">{restaurant.cuisine.join(", ")} &bull; {restaurant.address}</p>
+          <div className="flex items-center gap-4 text-xs font-bold pt-2">
+            <span className="bg-tertiary-container text-white px-2 py-0.5 rounded-full">{restaurant.rating} ★</span>
+            <span>{restaurant.deliveryTime}</span>
+            <span>{restaurant.distance}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav tabs */}
+      <div className="flex gap-4 border-b border-outline-variant pb-2">
+        <Link 
+          to={`/customer/restaurant/${id}`} 
+          className={`${location.pathname === `/customer/restaurant/${id}` ? "text-primary-container border-b-2 border-primary-container pb-2 font-bold" : "text-secondary font-semibold hover:text-primary pb-2"}`}
+        >
+          Menu
+        </Link>
+        <Link 
+          to={`/customer/restaurant/${id}/about`} 
+          className={`${location.pathname === `/customer/restaurant/${id}/about` ? "text-primary-container border-b-2 border-primary-container pb-2 font-bold" : "text-secondary font-semibold hover:text-primary pb-2"}`}
+        >
+          About
+        </Link>
+        <Link 
+          to={`/customer/restaurant/${id}/reviews`} 
+          className={`${location.pathname === `/customer/restaurant/${id}/reviews` ? "text-primary-container border-b-2 border-primary-container pb-2 font-bold" : "text-secondary font-semibold hover:text-primary pb-2"}`}
+        >
+          Reviews
+        </Link>
+      </div>
+
       <div className="bg-surface-container-lowest border border-outline-variant p-6 rounded-2xl space-y-4">
         <p className="text-on-surface font-semibold">Address:</p>
         <p className="text-secondary">{restaurant.address}</p>
@@ -516,7 +558,6 @@ export const AboutRestaurant: React.FC = () => {
         <p className="text-on-surface font-semibold">FSSAI License:</p>
         <p className="text-secondary">FSSAI-120938402948</p>
       </div>
-      <Link to={`/customer/restaurant/${id}`} className="text-primary-container font-semibold hover:underline block">&larr; Back to Menu</Link>
     </div>
   );
 };
@@ -525,6 +566,7 @@ export const AboutRestaurant: React.FC = () => {
 export const RestaurantReviews: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [restaurant, setRestaurant] = useState<Restaurant | undefined>(undefined);
+  const location = useLocation();
 
   useEffect(() => {
     if (id) {
@@ -532,11 +574,48 @@ export const RestaurantReviews: React.FC = () => {
     }
   }, [id]);
 
-  if (!restaurant) return <div>Loading...</div>;
+  if (!restaurant) return <div className="text-center py-12 text-secondary">Loading...</div>;
 
   return (
     <div className="space-y-6">
-      <h2 className="text-headline-md font-bold text-on-surface">Customer Reviews ({restaurant.reviews.length})</h2>
+      {/* Banner */}
+      <div 
+        className="h-64 rounded-2xl overflow-hidden relative flex items-end p-8 bg-cover bg-center" 
+        style={{ backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.1)), url(${restaurant.bannerUrl})` }}
+      >
+        <div className="text-white space-y-2">
+          <h2 className="text-3xl font-extrabold">{restaurant.name}</h2>
+          <p className="opacity-90 text-sm">{restaurant.cuisine.join(", ")} &bull; {restaurant.address}</p>
+          <div className="flex items-center gap-4 text-xs font-bold pt-2">
+            <span className="bg-tertiary-container text-white px-2 py-0.5 rounded-full">{restaurant.rating} ★</span>
+            <span>{restaurant.deliveryTime}</span>
+            <span>{restaurant.distance}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav tabs */}
+      <div className="flex gap-4 border-b border-outline-variant pb-2">
+        <Link 
+          to={`/customer/restaurant/${id}`} 
+          className={`${location.pathname === `/customer/restaurant/${id}` ? "text-primary-container border-b-2 border-primary-container pb-2 font-bold" : "text-secondary font-semibold hover:text-primary pb-2"}`}
+        >
+          Menu
+        </Link>
+        <Link 
+          to={`/customer/restaurant/${id}/about`} 
+          className={`${location.pathname === `/customer/restaurant/${id}/about` ? "text-primary-container border-b-2 border-primary-container pb-2 font-bold" : "text-secondary font-semibold hover:text-primary pb-2"}`}
+        >
+          About
+        </Link>
+        <Link 
+          to={`/customer/restaurant/${id}/reviews`} 
+          className={`${location.pathname === `/customer/restaurant/${id}/reviews` ? "text-primary-container border-b-2 border-primary-container pb-2 font-bold" : "text-secondary font-semibold hover:text-primary pb-2"}`}
+        >
+          Reviews
+        </Link>
+      </div>
+
       <div className="space-y-4">
         {restaurant.reviews.map((rev) => (
           <div key={rev.id} className="bg-surface-container-lowest border border-outline-variant p-5 rounded-2xl space-y-2">
@@ -549,7 +628,6 @@ export const RestaurantReviews: React.FC = () => {
           </div>
         ))}
       </div>
-      <Link to={`/customer/restaurant/${id}`} className="text-primary-container font-semibold hover:underline block">&larr; Back to Menu</Link>
     </div>
   );
 };
@@ -588,21 +666,16 @@ export const ShoppingCart: React.FC = () => {
                 <div className="font-bold text-sm text-primary-container">₹{i.price}</div>
               </div>
               <div className="flex items-center gap-3 bg-surface border border-outline-variant rounded-full px-3 py-1 font-bold text-sm">
-                <button onClick={() => dispatch(removeFromCart(i.id))}>-</button>
+                <button onClick={() => {
+                  if (i.quantity > 1) {
+                    apiService.updateCartItem(i.id, i.quantity - 1).then((mappedCart) => dispatch(setCart(mappedCart)));
+                  } else {
+                    apiService.removeCartItem(i.id).then((mappedCart) => dispatch(setCart(mappedCart)));
+                  }
+                }}>-</button>
                 <span>{i.quantity}</span>
                 <button onClick={() => {
-                  apiService.getRestaurantById(cart.restaurantId!).then(rest => {
-                    const origItem = rest?.menu.find(m => m.id === i.menuItemId);
-                    if (origItem) {
-                      dispatch(addToCart({
-                        item: origItem,
-                        quantity: 1,
-                        customizations: i.customizations,
-                        customizationPrice: i.price - origItem.price,
-                        restaurant: { id: cart.restaurantId!, name: cart.restaurantName!, image: cart.restaurantImage! }
-                      }));
-                    }
-                  });
+                  apiService.updateCartItem(i.id, i.quantity + 1).then((mappedCart) => dispatch(setCart(mappedCart)));
                 }}>+</button>
               </div>
             </div>
@@ -670,7 +743,7 @@ export const Checkout: React.FC = () => {
         address
       });
 
-      dispatch(clearCart());
+      await apiService.clearCart().then((mappedCart) => dispatch(setCart(mappedCart)));
       toast.success("Order Placed Successfully!");
       navigate("/customer/order-confirmed");
     } else {
@@ -1039,6 +1112,21 @@ export const OrderDetails: React.FC = () => {
     if (id) {
       apiService.getOrderById(id).then(setOrder);
     }
+  }, [id]);
+
+  useEffect(() => {
+    const handleOrderUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && String(customEvent.detail.orderId) === String(id)) {
+        console.log("Real-time order update received. Refreshing...");
+        apiService.getOrderById(id!).then(setOrder);
+      }
+    };
+
+    window.addEventListener("orderUpdate", handleOrderUpdate);
+    return () => {
+      window.removeEventListener("orderUpdate", handleOrderUpdate);
+    };
   }, [id]);
 
   if (!order) return <div className="text-center py-12 text-secondary">Loading order details...</div>;

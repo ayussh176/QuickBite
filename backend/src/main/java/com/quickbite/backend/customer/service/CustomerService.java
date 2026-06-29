@@ -15,7 +15,9 @@ import com.quickbite.backend.menu.dto.FoodItemResponse;
 import com.quickbite.backend.menu.entity.FoodItem;
 import com.quickbite.backend.menu.mapper.FoodItemMapper;
 import com.quickbite.backend.menu.repository.FoodItemRepository;
+import com.quickbite.backend.order.dto.OrderResponse;
 import com.quickbite.backend.order.entity.Order;
+import com.quickbite.backend.order.mapper.OrderMapper;
 import com.quickbite.backend.order.repository.OrderRepository;
 import com.quickbite.backend.restaurant.dto.RestaurantResponse;
 import com.quickbite.backend.restaurant.entity.Restaurant;
@@ -45,6 +47,7 @@ public class CustomerService {
     private final CustomerMapper customerMapper;
     private final RestaurantMapper restaurantMapper;
     private final FoodItemMapper foodItemMapper;
+    private final OrderMapper orderMapper;
 
     // ==================== Profile Operations ====================
 
@@ -192,9 +195,10 @@ public class CustomerService {
     // ==================== Order History ====================
 
     @Transactional(readOnly = true)
-    public Page<Order> getOrderHistory(String email, Pageable pageable) {
+    public Page<OrderResponse> getOrderHistory(String email, Pageable pageable) {
         Customer customer = getCustomerByEmail(email);
-        return orderRepository.findByCustomerIdOrderByPlacedAtDesc(customer.getId(), pageable);
+        return orderRepository.findByCustomerIdOrderByPlacedAtDesc(customer.getId(), pageable)
+                .map(orderMapper::toResponse);
     }
 
     // ==================== Helper Methods ====================

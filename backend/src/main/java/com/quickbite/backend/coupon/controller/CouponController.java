@@ -17,6 +17,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
+
 @Slf4j
 @RestController
 @RequestMapping("/v1/coupons")
@@ -30,9 +32,10 @@ public class CouponController {
     @PreAuthorize("hasAnyRole('ADMIN', 'RESTAURANT')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Create a coupon (Admin/Merchant)", description = "Creates a new global or restaurant-specific promo coupon code")
-    public ResponseEntity<ApiResponse<CouponResponse>> createCoupon(@Valid @RequestBody CouponRequest request) {
+    public ResponseEntity<ApiResponse<CouponResponse>> createCoupon(@Valid @RequestBody CouponRequest request,
+                                                                    Principal principal) {
         log.info("Creating new coupon code: {}", request.getCode());
-        CouponResponse response = couponService.createCoupon(request);
+        CouponResponse response = couponService.createCoupon(principal.getName(), request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Coupon created successfully.", response));
     }
@@ -42,9 +45,10 @@ public class CouponController {
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Update a coupon", description = "Modifies value, type, expiry dates, and scope of an existing coupon")
     public ResponseEntity<ApiResponse<CouponResponse>> updateCoupon(@PathVariable Long id,
-                                                                    @Valid @RequestBody CouponRequest request) {
+                                                                    @Valid @RequestBody CouponRequest request,
+                                                                    Principal principal) {
         log.info("Updating coupon ID: {}", id);
-        CouponResponse response = couponService.updateCoupon(id, request);
+        CouponResponse response = couponService.updateCoupon(principal.getName(), id, request);
         return ResponseEntity.ok(ApiResponse.success("Coupon updated successfully.", response));
     }
 
@@ -52,9 +56,9 @@ public class CouponController {
     @PreAuthorize("hasAnyRole('ADMIN', 'RESTAURANT')")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Delete a coupon", description = "Deletes a coupon code completely from the system")
-    public ResponseEntity<ApiResponse<Void>> deleteCoupon(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> deleteCoupon(@PathVariable Long id, Principal principal) {
         log.info("Deleting coupon ID: {}", id);
-        couponService.deleteCoupon(id);
+        couponService.deleteCoupon(principal.getName(), id);
         return ResponseEntity.ok(ApiResponse.success("Coupon deleted successfully."));
     }
 

@@ -17,6 +17,7 @@ import com.quickbite.backend.exception.BadRequestException;
 import com.quickbite.backend.exception.ConflictException;
 import com.quickbite.backend.exception.ResourceNotFoundException;
 import com.quickbite.backend.restaurant.entity.Restaurant;
+import com.quickbite.backend.restaurant.entity.RestaurantAddress;
 import com.quickbite.backend.restaurant.repository.RestaurantRepository;
 import com.quickbite.backend.security.JwtTokenProvider;
 import com.quickbite.backend.utils.SlugUtils;
@@ -78,9 +79,9 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .phone(request.getPhone())
                 .role(request.getRole())
-                .accountStatus(AccountStatus.ACTIVE)
+                .accountStatus(request.getRole() == Role.RESTAURANT ? AccountStatus.PENDING_VERIFICATION : AccountStatus.ACTIVE)
                 .emailVerified(false)
-                .phoneVerified(false)
+                .phoneVerified(request.getPhone() != null && !request.getPhone().isBlank())
                 .build();
 
         User savedUser = userRepository.save(user);
@@ -116,10 +117,29 @@ public class AuthService {
                         .user(savedUser)
                         .name(request.getRestaurantName())
                         .slug(SlugUtils.toSlug(request.getRestaurantName()) + "-" + UUID.randomUUID().toString().substring(0, 8))
+                        .description(request.getRestaurantDescription())
                         .cuisineType(request.getCuisineType())
                         .email(request.getEmail())
                         .phone(request.getPhone())
+                        .fssaiLicense(request.getFssaiLicense())
+                        .gstNumber(request.getGstNumber())
+                        .active(false)
                         .build();
+                
+                String addressLine1 = firstNonBlank(request.getAddressLine1(), request.getAddress());
+                if (addressLine1 != null) {
+                    RestaurantAddress restAddr = RestaurantAddress.builder()
+                            .addressLine1(addressLine1)
+                            .addressLine2(request.getAddressLine2())
+                            .city(firstNonBlank(request.getCity(), "Noida"))
+                            .state(firstNonBlank(request.getState(), "Uttar Pradesh"))
+                            .zipCode(firstNonBlank(request.getZipCode(), "201301"))
+                            .latitude(request.getLatitude())
+                            .longitude(request.getLongitude())
+                            .build();
+                    restaurant.setAddress(restAddr);
+                }
+                
                 restaurantRepository.save(restaurant);
                 name = restaurant.getName();
                 break;
@@ -178,22 +198,7 @@ public class AuthService {
         String accessToken = jwtTokenProvider.generateToken(authentication);
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
 
-        String displayName = "User";
-        if (user.getRole() == Role.CUSTOMER) {
-            displayName = customerRepository.findByUserId(user.getId())
-                    .map(c -> c.getFirstName() + " " + c.getLastName())
-                    .orElse("Customer");
-        } else if (user.getRole() == Role.RESTAURANT) {
-            displayName = restaurantRepository.findByUserId(user.getId())
-                    .map(Restaurant::getName)
-                    .orElse("Restaurant");
-        } else if (user.getRole() == Role.DELIVERY) {
-            displayName = deliveryPartnerRepository.findByUserId(user.getId())
-                    .map(d -> d.getFirstName() + " " + d.getLastName())
-                    .orElse("Delivery Partner");
-        } else if (user.getRole() == Role.ADMIN) {
-            displayName = "Administrator";
-        }
+        String displayName = resolveDisplayName(user);
 
         log.info("User {} logged in successfully", user.getEmail());
 
@@ -222,20 +227,7 @@ public class AuthService {
         String newAccessToken = jwtTokenProvider.generateToken(claims, user.getEmail());
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
 
-        String displayName = "User";
-        if (user.getRole() == Role.CUSTOMER) {
-            displayName = customerRepository.findByUserId(user.getId())
-                    .map(c -> c.getFirstName() + " " + c.getLastName())
-                    .orElse("Customer");
-        } else if (user.getRole() == Role.RESTAURANT) {
-            displayName = restaurantRepository.findByUserId(user.getId())
-                    .map(Restaurant::getName)
-                    .orElse("Restaurant");
-        } else if (user.getRole() == Role.DELIVERY) {
-            displayName = deliveryPartnerRepository.findByUserId(user.getId())
-                    .map(d -> d.getFirstName() + " " + d.getLastName())
-                    .orElse("Delivery Partner");
-        }
+        String displayName = resolveDisplayName(user);
 
         log.info("Refreshed access token for user: {}", email);
 
@@ -295,5 +287,32 @@ public class AuthService {
         tokenRepository.delete(resetToken);
 
         log.info("Password reset successfully for user: {}", user.getEmail());
+    }
+
+    // ==================== Helper Methods ====================
+
+    private String resolveDisplayName(User user) {
+        return switch (user.getRole()) {
+            case CUSTOMER -> customerRepository.findByUserId(user.getId())
+                    .map(c -> c.getFirstName() + " " + c.getLastName())
+                    .orElse("Customer");
+            case RESTAURANT -> restaurantRepository.findByUserId(user.getId())
+                    .map(Restaurant::getName)
+                    .orElse("Restaurant");
+            case DELIVERY -> deliveryPartnerRepository.findByUserId(user.getId())
+                    .map(d -> d.getFirstName() + " " + d.getLastName())
+                    .orElse("Delivery Partner");
+            case ADMIN -> "Administrator";
+        };
+    }
+
+    private String firstNonBlank(String preferred, String fallback) {
+        if (preferred != null && !preferred.isBlank()) {
+            return preferred;
+        }
+        if (fallback != null && !fallback.isBlank()) {
+            return fallback;
+        }
+        return null;
     }
 }

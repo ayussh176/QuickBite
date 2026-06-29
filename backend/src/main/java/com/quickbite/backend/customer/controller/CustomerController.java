@@ -6,7 +6,7 @@ import com.quickbite.backend.customer.dto.CustomerRequest;
 import com.quickbite.backend.customer.dto.CustomerResponse;
 import com.quickbite.backend.customer.service.CustomerService;
 import com.quickbite.backend.menu.dto.FoodItemResponse;
-import com.quickbite.backend.order.entity.Order;
+import com.quickbite.backend.order.dto.OrderResponse;
 import com.quickbite.backend.restaurant.dto.RestaurantResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -135,9 +135,9 @@ public class CustomerController {
 
     @GetMapping("/orders")
     @Operation(summary = "Get order history", description = "Retrieves a paginated list of all past orders placed by the customer, sorted with newest orders first")
-    public ResponseEntity<ApiResponse<Page<Order>>> getOrders(Pageable pageable, Principal principal) {
+    public ResponseEntity<ApiResponse<Page<OrderResponse>>> getOrders(Pageable pageable, Principal principal) {
         log.info("Order history requested by customer: {}", principal.getName());
-        Page<Order> response = customerService.getOrderHistory(principal.getName(), pageable);
+        Page<OrderResponse> response = customerService.getOrderHistory(principal.getName(), pageable);
         return ResponseEntity.ok(ApiResponse.success("Order history fetched successfully.", response));
     }
 }

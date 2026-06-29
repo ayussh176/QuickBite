@@ -7,13 +7,19 @@ import com.quickbite.backend.admin.repository.ComplaintRepository;
 import com.quickbite.backend.auth.entity.User;
 import com.quickbite.backend.auth.repository.UserRepository;
 import com.quickbite.backend.common.enums.*;
+import com.quickbite.backend.delivery.dto.DeliveryPartnerResponse;
 import com.quickbite.backend.delivery.entity.DeliveryPartner;
+import com.quickbite.backend.delivery.mapper.DeliveryMapper;
 import com.quickbite.backend.delivery.repository.DeliveryPartnerRepository;
 import com.quickbite.backend.exception.BadRequestException;
 import com.quickbite.backend.exception.ResourceNotFoundException;
+import com.quickbite.backend.order.dto.OrderResponse;
 import com.quickbite.backend.order.entity.Order;
+import com.quickbite.backend.order.mapper.OrderMapper;
 import com.quickbite.backend.order.repository.OrderRepository;
+import com.quickbite.backend.restaurant.dto.RestaurantResponse;
 import com.quickbite.backend.restaurant.entity.Restaurant;
+import com.quickbite.backend.restaurant.mapper.RestaurantMapper;
 import com.quickbite.backend.restaurant.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +44,9 @@ public class AdminService {
     private final ComplaintRepository complaintRepository;
 
     private final AdminMapper adminMapper;
+    private final RestaurantMapper restaurantMapper;
+    private final DeliveryMapper deliveryMapper;
+    private final OrderMapper orderMapper;
 
     // ==================== Dashboard & Statistics ====================
 
@@ -70,19 +79,25 @@ public class AdminService {
     // ==================== User Management ====================
 
     @Transactional(readOnly = true)
-    public Page<UserManagementResponse> listUsers(Role role, AccountStatus status, Pageable pageable) {
-        if (role != null && status != null) {
-            return userRepository.findByRoleAndAccountStatus(role, status, pageable)
-                    .map(adminMapper::toUserResponse);
-        } else if (role != null) {
-            return userRepository.findByRole(role, pageable)
-                    .map(adminMapper::toUserResponse);
-        } else if (status != null) {
-            return userRepository.findByAccountStatus(status, pageable)
-                    .map(adminMapper::toUserResponse);
-        }
-        return userRepository.findAll(pageable)
-                .map(adminMapper::toUserResponse);
+    public Page<UserManagementResponse> listUsers(String search, Role role, AccountStatus status, Pageable pageable) {
+        org.springframework.data.jpa.domain.Specification<User> spec = (root, query, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+            if (role != null) {
+                predicates.add(cb.equal(root.get("role"), role));
+            }
+            if (status != null) {
+                predicates.add(cb.equal(root.get("accountStatus"), status));
+            }
+            if (search != null && !search.isBlank()) {
+                String keyword = "%" + search.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("email")), keyword),
+                        cb.like(cb.lower(root.get("phone")), keyword)
+                ));
+            }
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+        return userRepository.findAll(spec, pageable).map(adminMapper::toUserResponse);
     }
 
     @Transactional
@@ -102,19 +117,74 @@ public class AdminService {
         return adminMapper.toUserResponse(saved);
     }
 
-    // ==================== Restaurant Approvals ====================
-
-    @Transactional(readOnly = true)
-    public Page<Restaurant> listRestaurants(RestaurantStatus status, Pageable pageable) {
-        if (status != null) {
-            // Find by status pageable can be added to RestaurantRepository if needed, or query JpaRepository.findAll
-            return restaurantRepository.findAll((root, query, cb) -> cb.equal(root.get("status"), status), pageable);
+    @Transactional
+    public UserManagementResponse updateUserRole(Long userId, Role role) {
+        log.info("Updating role for user ID {} to {}", userId, role);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        if (user.getRole() == Role.ADMIN) {
+            throw new BadRequestException("Admin roles cannot be modified.");
         }
-        return restaurantRepository.findAll(pageable);
+        user.setRole(role);
+        User saved = userRepository.save(user);
+        return adminMapper.toUserResponse(saved);
     }
 
     @Transactional
-    public Restaurant toggleRestaurantApproval(Long restaurantId, RestaurantStatus status) {
+    public UserManagementResponse updateUserStatus(Long userId, AccountStatus status) {
+        log.info("Setting account status for user ID {} to {}", userId, status);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        if (user.getRole() == Role.ADMIN) {
+            throw new BadRequestException("Admin accounts status cannot be modified.");
+        }
+        user.setAccountStatus(status);
+        User saved = userRepository.save(user);
+        return adminMapper.toUserResponse(saved);
+    }
+
+    @Transactional
+    public void deleteUser(Long userId) {
+        log.info("Deleting user ID: {}", userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+        if (user.getRole() == Role.ADMIN) {
+            throw new BadRequestException("Admin accounts cannot be deleted.");
+        }
+        
+        if (user.getRole() == Role.RESTAURANT) {
+            restaurantRepository.findByUserId(userId).ifPresent(restaurantRepository::delete);
+        } else if (user.getRole() == Role.DELIVERY) {
+            deliveryPartnerRepository.findByUserId(userId).ifPresent(deliveryPartnerRepository::delete);
+        }
+        
+        userRepository.delete(user);
+    }
+
+    // ==================== Restaurant Approvals ====================
+
+    @Transactional(readOnly = true)
+    public Page<RestaurantResponse> listRestaurants(String search, RestaurantStatus status, Pageable pageable) {
+        org.springframework.data.jpa.domain.Specification<Restaurant> spec = (root, query, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (search != null && !search.isBlank()) {
+                String keyword = "%" + search.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("name")), keyword),
+                        cb.like(cb.lower(root.get("phone")), keyword),
+                        cb.like(cb.lower(root.get("email")), keyword)
+                ));
+            }
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+        return restaurantRepository.findAll(spec, pageable).map(restaurantMapper::toResponse);
+    }
+
+    @Transactional
+    public RestaurantResponse toggleRestaurantApproval(Long restaurantId, RestaurantStatus status) {
         log.info("Setting restaurant ID: {} status to {}", restaurantId, status);
         Restaurant restaurant = restaurantRepository.findById(restaurantId)
                 .orElseThrow(() -> new ResourceNotFoundException("Restaurant", "id", restaurantId));
@@ -123,28 +193,80 @@ public class AdminService {
         
         // If approved, verify the owner account
         if (status == RestaurantStatus.APPROVED) {
+            restaurant.setActive(true);
             User owner = restaurant.getUser();
             if (owner != null) {
                 owner.setAccountStatus(AccountStatus.ACTIVE);
                 userRepository.save(owner);
             }
+        } else {
+            restaurant.setActive(false);
+            if (restaurant.getUser() != null) {
+                if (status == RestaurantStatus.REJECTED) {
+                    restaurant.getUser().setAccountStatus(AccountStatus.INACTIVE);
+                } else if (status == RestaurantStatus.SUSPENDED) {
+                    restaurant.getUser().setAccountStatus(AccountStatus.SUSPENDED);
+                } else {
+                    restaurant.getUser().setAccountStatus(AccountStatus.PENDING_VERIFICATION);
+                }
+                userRepository.save(restaurant.getUser());
+            }
         }
 
-        return restaurantRepository.save(restaurant);
+        Restaurant saved = restaurantRepository.save(restaurant);
+        return restaurantMapper.toResponse(saved);
+    }
+
+    @Transactional
+    public RestaurantResponse updateRestaurant(Long restaurantId, com.quickbite.backend.restaurant.dto.RestaurantRequest request) {
+        log.info("Admin updating restaurant ID: {}", restaurantId);
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new ResourceNotFoundException("Restaurant", "id", restaurantId));
+        
+        restaurantMapper.updateEntityFromRequest(request, restaurant);
+        
+        if (request.getAddress() != null) {
+            if (restaurant.getAddress() == null) {
+                com.quickbite.backend.restaurant.entity.RestaurantAddress newAddress = restaurantMapper.toAddressEntity(request.getAddress());
+                restaurant.setAddress(newAddress);
+            } else {
+                restaurantMapper.updateAddressEntity(request.getAddress(), restaurant.getAddress());
+            }
+        }
+        
+        Restaurant saved = restaurantRepository.save(restaurant);
+        return restaurantMapper.toResponse(saved);
+    }
+
+    @Transactional
+    public void deleteRestaurant(Long restaurantId) {
+        log.info("Deleting restaurant ID: {}", restaurantId);
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new ResourceNotFoundException("Restaurant", "id", restaurantId));
+        try {
+            restaurantRepository.delete(restaurant);
+        } catch (Exception e) {
+            log.warn("Hard delete failed due to constraints. Soft deleting restaurant instead.");
+            restaurant.setActive(false);
+            restaurant.setStatus(RestaurantStatus.REJECTED);
+            restaurantRepository.save(restaurant);
+        }
     }
 
     // ==================== Delivery Partner Verifications ====================
 
     @Transactional(readOnly = true)
-    public Page<DeliveryPartner> listDeliveryPartners(Boolean verified, Pageable pageable) {
+    public Page<DeliveryPartnerResponse> listDeliveryPartners(Boolean verified, Pageable pageable) {
         if (verified != null) {
-            return deliveryPartnerRepository.findAll((root, query, cb) -> cb.equal(root.get("verified"), verified), pageable);
+            return deliveryPartnerRepository.findAll((root, query, cb) -> cb.equal(root.get("verified"), verified), pageable)
+                    .map(deliveryMapper::toResponse);
         }
-        return deliveryPartnerRepository.findAll(pageable);
+        return deliveryPartnerRepository.findAll(pageable)
+                .map(deliveryMapper::toResponse);
     }
 
     @Transactional
-    public DeliveryPartner verifyDeliveryPartner(Long partnerId, boolean verified) {
+    public DeliveryPartnerResponse verifyDeliveryPartner(Long partnerId, boolean verified) {
         log.info("Setting delivery partner ID: {} verified status to {}", partnerId, verified);
         DeliveryPartner partner = deliveryPartnerRepository.findById(partnerId)
                 .orElseThrow(() -> new ResourceNotFoundException("DeliveryPartner", "id", partnerId));
@@ -158,17 +280,60 @@ public class AdminService {
             }
         }
 
-        return deliveryPartnerRepository.save(partner);
+        DeliveryPartner saved = deliveryPartnerRepository.save(partner);
+        return deliveryMapper.toResponse(saved);
     }
 
     // ==================== General Orders ====================
 
     @Transactional(readOnly = true)
-    public Page<Order> listAllOrders(OrderStatus status, Pageable pageable) {
-        if (status != null) {
-            return orderRepository.findByStatus(status, pageable);
-        }
-        return orderRepository.findAll(pageable);
+    public Page<OrderResponse> listAllOrders(String search, OrderStatus status, String startDate, String endDate, Pageable pageable) {
+        org.springframework.data.jpa.domain.Specification<Order> spec = (root, query, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+            
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            
+            if (search != null && !search.isBlank()) {
+                String keyword = "%" + search.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("orderNumber")), keyword),
+                        cb.like(cb.lower(root.get("restaurant").get("name")), keyword),
+                        cb.like(cb.lower(root.get("customer").get("firstName")), keyword),
+                        cb.like(cb.lower(root.get("customer").get("lastName")), keyword),
+                        cb.like(cb.lower(root.get("customer").get("user").get("email")), keyword)
+                ));
+            }
+            
+            if (startDate != null && !startDate.isBlank()) {
+                try {
+                    java.time.LocalDateTime start = java.time.LocalDateTime.parse(startDate);
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("placedAt"), start));
+                } catch (Exception e) {
+                    try {
+                        java.time.LocalDate startD = java.time.LocalDate.parse(startDate);
+                        predicates.add(cb.greaterThanOrEqualTo(root.get("placedAt"), startD.atStartOfDay()));
+                    } catch (Exception ex) {}
+                }
+            }
+            
+            if (endDate != null && !endDate.isBlank()) {
+                try {
+                    java.time.LocalDateTime end = java.time.LocalDateTime.parse(endDate);
+                    predicates.add(cb.lessThanOrEqualTo(root.get("placedAt"), end));
+                } catch (Exception e) {
+                    try {
+                        java.time.LocalDate endD = java.time.LocalDate.parse(endDate);
+                        predicates.add(cb.lessThanOrEqualTo(root.get("placedAt"), endD.atTime(23, 59, 59)));
+                    } catch (Exception ex) {}
+                }
+            }
+            
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+        
+        return orderRepository.findAll(spec, pageable).map(orderMapper::toResponse);
     }
 
     // ==================== Complaints & Support Tickets ====================

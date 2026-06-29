@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { store, persistor } from "./redux/store";
 import { AppRoutes } from "./routes/AppRoutes";
 import { Toaster } from "react-hot-toast";
+import WebSocketInitializer from "./components/common/WebSocketInitializer";
 
 // Initialize TanStack Query Client
 const queryClient = new QueryClient({
@@ -23,6 +24,7 @@ const App: React.FC = () => {
       <PersistGate loading={<div>Restoring session...</div>} persistor={persistor}>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
+            <WebSocketInitializer />
             <AppRoutes />
             <Toaster 
               position="top-right" 

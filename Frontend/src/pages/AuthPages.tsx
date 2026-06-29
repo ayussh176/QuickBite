@@ -196,18 +196,18 @@ export const Login: React.FC = () => {
 
   const onSubmit = async (data: LoginFormValues) => {
     try {
-      const user = await apiService.login(data.email, data.role);
-      dispatch(setCredentials({ user, token: "mock-token-123" }));
+      const { user, token } = await apiService.login(data.email, data.password);
+      dispatch(setCredentials({ user, token }));
       toast.success(`Logged in as ${user.name}`);
       
       // Redirect based on role
-      if (data.role === "CUSTOMER") navigate("/customer/home");
-      else if (data.role === "RESTAURANT") navigate("/merchant/dashboard");
-      else if (data.role === "DELIVERY") navigate("/delivery/dashboard");
-      else if (data.role === "ADMIN") navigate("/admin/dashboard");
+      if (user.role === "CUSTOMER") navigate("/customer/home");
+      else if (user.role === "RESTAURANT") navigate("/merchant/dashboard");
+      else if (user.role === "DELIVERY") navigate("/delivery/dashboard");
+      else if (user.role === "ADMIN") navigate("/admin/dashboard");
       else navigate("/customer/home");
-    } catch {
-      toast.error("Invalid credentials");
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Invalid credentials");
     }
   };
 
@@ -326,30 +326,30 @@ export const Join: React.FC = () => {
   const selectedRole = watch("role");
 
   const onSubmit = async (data: RegisterFormValues) => {
-    console.log("Register data:", data);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    
-    if (data.role === "RESTAURANT") {
-      const requests = JSON.parse(localStorage.getItem("qb_onboarding") || "[]");
-      requests.push({
-        id: `REQ-${Math.floor(1000 + Math.random() * 9000)}`,
-        restaurantName: data.restaurantName || "New Restaurant",
-        ownerName: data.name,
-        email: data.email,
-        phone: data.phone || "+91 99999 99999",
-        cuisine: [data.cuisine || "Burgers"],
-        address: data.address || "Main Street, City",
-        submittedAt: new Date().toISOString().substring(0, 10),
-        status: "pending",
-        licenseNumber: data.licenseNumber || "FSSAI-PENDING"
-      });
-      localStorage.setItem("qb_onboarding", JSON.stringify(requests));
-      toast.success("Merchant application submitted! Pending Admin Approval.");
-    } else {
-      toast.success("Account created successfully! Please verify email.");
+    const parts = data.name.trim().split(" ");
+    const firstName = parts[0] || "Name";
+    const lastName = parts.slice(1).join(" ") || "Surname";
+
+    const payload = {
+      email: data.email,
+      password: data.password,
+      phone: data.phone || "9999999999",
+      role: data.role,
+      firstName,
+      lastName,
+      restaurantName: data.restaurantName,
+      cuisineType: data.cuisine,
+      fssaiLicense: data.licenseNumber,
+      address: data.address
+    };
+
+    try {
+      await apiService.register(payload);
+      toast.success("Account created successfully! Please log in.");
+      navigate("/auth/login");
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Registration failed");
     }
-    
-    navigate("/auth/verify-email");
   };
 
   const nameLabel = selectedRole === "RESTAURANT" ? "Owner Full Name" : selectedRole === "DELIVERY" ? "Rider Full Name" : "Full Name";

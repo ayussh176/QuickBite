@@ -2,6 +2,8 @@ package com.quickbite.backend.restaurant.controller;
 
 import com.quickbite.backend.common.ApiResponse;
 import com.quickbite.backend.common.enums.RestaurantStatus;
+import com.quickbite.backend.restaurant.dto.MerchantAnalyticsResponse;
+import com.quickbite.backend.restaurant.dto.MerchantRevenueResponse;
 import com.quickbite.backend.restaurant.dto.RestaurantRequest;
 import com.quickbite.backend.restaurant.dto.RestaurantResponse;
 import com.quickbite.backend.restaurant.service.RestaurantService;
@@ -52,6 +54,16 @@ public class RestaurantController {
         return ResponseEntity.ok(ApiResponse.success("Restaurant fetched successfully.", response));
     }
 
+    @GetMapping("/my-restaurant")
+    @PreAuthorize("hasRole('RESTAURANT')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Get merchant restaurant profile", description = "Retrieves profile configurations and coordinates of the logged-in restaurant owner")
+    public ResponseEntity<ApiResponse<RestaurantResponse>> getProfile(Principal principal) {
+        log.info("Restaurant profile requested by owner: {}", principal.getName());
+        RestaurantResponse response = restaurantService.getRestaurantByOwner(principal.getName());
+        return ResponseEntity.ok(ApiResponse.success("Restaurant profile fetched successfully.", response));
+    }
+
     @PutMapping("/my-restaurant")
     @PreAuthorize("hasRole('RESTAURANT')")
     @SecurityRequirement(name = "bearerAuth")
@@ -61,6 +73,26 @@ public class RestaurantController {
         log.info("Profile update request from restaurant owner: {}", principal.getName());
         RestaurantResponse response = restaurantService.updateRestaurantProfile(principal.getName(), request);
         return ResponseEntity.ok(ApiResponse.success("Restaurant profile updated successfully.", response));
+    }
+
+    @GetMapping("/my-restaurant/revenue")
+    @PreAuthorize("hasRole('RESTAURANT')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Get merchant revenue metrics", description = "Retrieves persisted revenue aggregates and daily settlement reports for the logged-in restaurant")
+    public ResponseEntity<ApiResponse<MerchantRevenueResponse>> getMerchantRevenue(Principal principal) {
+        log.info("Revenue metrics requested by restaurant owner: {}", principal.getName());
+        MerchantRevenueResponse response = restaurantService.getMerchantRevenue(principal.getName());
+        return ResponseEntity.ok(ApiResponse.success("Merchant revenue metrics fetched successfully.", response));
+    }
+
+    @GetMapping("/my-restaurant/analytics")
+    @PreAuthorize("hasRole('RESTAURANT')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Get merchant analytics metrics", description = "Retrieves persisted menu, inventory, coupon, and order analytics for the logged-in restaurant")
+    public ResponseEntity<ApiResponse<MerchantAnalyticsResponse>> getMerchantAnalytics(Principal principal) {
+        log.info("Analytics metrics requested by restaurant owner: {}", principal.getName());
+        MerchantAnalyticsResponse response = restaurantService.getMerchantAnalytics(principal.getName());
+        return ResponseEntity.ok(ApiResponse.success("Merchant analytics metrics fetched successfully.", response));
     }
 
     @PatchMapping("/{id}/status")

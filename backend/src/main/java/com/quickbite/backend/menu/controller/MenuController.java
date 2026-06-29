@@ -51,7 +51,7 @@ public class MenuController {
                                                                          @Valid @RequestBody CategoryRequest request,
                                                                          Principal principal) {
         log.info("Category creation request for restaurant ID: {} from {}", restaurantId, principal.getName());
-        CategoryResponse response = menuService.createCategory(principal.getName(), request);
+        CategoryResponse response = menuService.createCategory(principal.getName(), restaurantId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Category created successfully.", response));
     }
@@ -65,7 +65,7 @@ public class MenuController {
                                                                          @Valid @RequestBody CategoryRequest request,
                                                                          Principal principal) {
         log.info("Category update request for category ID: {} from {}", categoryId, principal.getName());
-        CategoryResponse response = menuService.updateCategory(principal.getName(), categoryId, request);
+        CategoryResponse response = menuService.updateCategory(principal.getName(), restaurantId, categoryId, request);
         return ResponseEntity.ok(ApiResponse.success("Category updated successfully.", response));
     }
 
@@ -77,7 +77,7 @@ public class MenuController {
                                                              @PathVariable Long categoryId,
                                                              Principal principal) {
         log.info("Category deletion request for category ID: {} from {}", categoryId, principal.getName());
-        menuService.deleteCategory(principal.getName(), categoryId);
+        menuService.deleteCategory(principal.getName(), restaurantId, categoryId);
         return ResponseEntity.ok(ApiResponse.success("Category deleted successfully."));
     }
 
@@ -116,7 +116,7 @@ public class MenuController {
                                                                          @Valid @RequestBody FoodItemRequest request,
                                                                          Principal principal) {
         log.info("Food item creation request for restaurant ID: {} from {}", restaurantId, principal.getName());
-        FoodItemResponse response = menuService.createFoodItem(principal.getName(), request);
+        FoodItemResponse response = menuService.createFoodItem(principal.getName(), restaurantId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Food item created successfully.", response));
     }
@@ -130,7 +130,7 @@ public class MenuController {
                                                                          @Valid @RequestBody FoodItemRequest request,
                                                                          Principal principal) {
         log.info("Food item update request for item ID: {} from {}", itemId, principal.getName());
-        FoodItemResponse response = menuService.updateFoodItem(principal.getName(), itemId, request);
+        FoodItemResponse response = menuService.updateFoodItem(principal.getName(), restaurantId, itemId, request);
         return ResponseEntity.ok(ApiResponse.success("Food item updated successfully.", response));
     }
 
@@ -142,7 +142,7 @@ public class MenuController {
                                                              @PathVariable Long itemId,
                                                              Principal principal) {
         log.info("Food item deletion request for item ID: {} from {}", itemId, principal.getName());
-        menuService.deleteFoodItem(principal.getName(), itemId);
+        menuService.deleteFoodItem(principal.getName(), restaurantId, itemId);
         return ResponseEntity.ok(ApiResponse.success("Food item deleted successfully."));
     }
 }

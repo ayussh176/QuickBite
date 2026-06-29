@@ -116,8 +116,15 @@ const cartSlice = createSlice({
       state.restaurantImage = null;
       state.appliedCoupon = null;
     },
+    setCart(state, action: PayloadAction<CartState>) {
+      state.items = action.payload.items;
+      state.restaurantId = action.payload.restaurantId;
+      state.restaurantName = action.payload.restaurantName;
+      state.restaurantImage = action.payload.restaurantImage;
+      state.appliedCoupon = action.payload.appliedCoupon;
+    },
   },
 });
 
-export const { addToCart, removeFromCart, clearItem, applyCoupon, clearCart } = cartSlice.actions;
+export const { addToCart, removeFromCart, clearItem, applyCoupon, clearCart, setCart } = cartSlice.actions;
 export default cartSlice.reducer;

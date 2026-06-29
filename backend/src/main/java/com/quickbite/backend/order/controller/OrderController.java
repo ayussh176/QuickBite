@@ -80,6 +80,26 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success("Order history fetched successfully.", response));
     }
 
+    @GetMapping("/restaurant")
+    @PreAuthorize("hasRole('RESTAURANT')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Get restaurant order history", description = "Fetches a paginated list of all orders placed at the logged-in restaurant")
+    public ResponseEntity<ApiResponse<Page<OrderResponse>>> getRestaurantHistory(Pageable pageable, Principal principal) {
+        log.info("Fetching order history for restaurant: {}", principal.getName());
+        Page<OrderResponse> response = orderService.getRestaurantOrderHistory(principal.getName(), pageable);
+        return ResponseEntity.ok(ApiResponse.success("Restaurant order history fetched successfully.", response));
+    }
+
+    @GetMapping("/restaurant/queue")
+    @PreAuthorize("hasRole('RESTAURANT')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Get restaurant order queue", description = "Fetches active order workflow items for the logged-in restaurant")
+    public ResponseEntity<ApiResponse<Page<OrderResponse>>> getRestaurantQueue(Pageable pageable, Principal principal) {
+        log.info("Fetching active order queue for restaurant: {}", principal.getName());
+        Page<OrderResponse> response = orderService.getRestaurantOrderQueue(principal.getName(), pageable);
+        return ResponseEntity.ok(ApiResponse.success("Restaurant order queue fetched successfully.", response));
+    }
+
     @PatchMapping("/{orderId}/status")
     @PreAuthorize("hasAnyRole('ADMIN', 'RESTAURANT', 'DELIVERY')")
     @SecurityRequirement(name = "bearerAuth")

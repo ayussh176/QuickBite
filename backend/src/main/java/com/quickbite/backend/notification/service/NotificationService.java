@@ -30,9 +30,6 @@ public class NotificationService {
     
     private final NotificationMapper notificationMapper;
 
-    /**
-     * Publishes notification to RabbitMQ for decoupled asynchronous delivery.
-     */
     public void sendNotification(Long userId, String title, String message, NotificationType type, String data) {
         log.info("Publishing notification to RabbitMQ for user ID: {}", userId);
         NotificationMessage notifMessage = NotificationMessage.builder()
@@ -46,6 +43,16 @@ public class NotificationService {
         rabbitTemplate.convertAndSend(
                 RabbitMQConstants.NOTIFICATION_EXCHANGE,
                 RabbitMQConstants.NOTIFICATION_PUSH_ROUTING_KEY,
+                notifMessage
+        );
+        rabbitTemplate.convertAndSend(
+                RabbitMQConstants.NOTIFICATION_EXCHANGE,
+                RabbitMQConstants.NOTIFICATION_EMAIL_ROUTING_KEY,
+                notifMessage
+        );
+        rabbitTemplate.convertAndSend(
+                RabbitMQConstants.NOTIFICATION_EXCHANGE,
+                RabbitMQConstants.NOTIFICATION_SMS_ROUTING_KEY,
                 notifMessage
         );
     }

@@ -18,4 +18,7 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
     
     @Query("SELECT i FROM Inventory i JOIN FETCH i.foodItem f WHERE f.restaurant.id = :restaurantId")
     Page<Inventory> findByRestaurantId(Long restaurantId, Pageable pageable);
+
+    @Query("SELECT COUNT(i) FROM Inventory i WHERE i.foodItem.restaurant.id = :restaurantId AND i.quantity <= i.lowStockThreshold")
+    long countLowStockItemsByRestaurantId(Long restaurantId);
 }

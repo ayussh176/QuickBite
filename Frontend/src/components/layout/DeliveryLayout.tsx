@@ -51,7 +51,7 @@ export const DeliveryLayout: React.FC<DeliveryLayoutProps> = ({ children }) => {
       </header>
 
       {/* Main Container with Sidebar */}
-      <div className="flex flex-1">
+      <div className="flex flex-1 h-[calc(100vh-4rem)] overflow-hidden">
         {/* Sidebar */}
         <aside className="w-64 bg-surface-container-lowest border-r border-outline-variant py-6 flex flex-col justify-between shrink-0">
           <ul className="space-y-1 px-4">
